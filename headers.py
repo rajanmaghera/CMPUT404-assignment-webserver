@@ -1,0 +1,3 @@
+HEADER_404 = "HTTP/1.1 404 Not Found"
+HEADER_200 = "HTTP/1.1 200 OK"
+HEADER_301 = "HTTP/1.1 301 Moved Permanently"
