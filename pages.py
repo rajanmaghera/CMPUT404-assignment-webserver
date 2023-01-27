@@ -20,3 +20,14 @@ PAGE405 = """<html>
 </body>
 </html>
 """
+
+PAGE400 = """<html>
+<head>
+<title>400 Bad Request</title>
+</head>
+<body>
+<h1>400 Bad Request</h1>
+<p>The request could not be processed due to it being incorrect.</p>
+</body>
+</html>
+"""

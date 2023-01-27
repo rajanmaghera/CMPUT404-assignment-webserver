@@ -1,6 +1,7 @@
 #  coding: utf-8
+import os
 import socketserver
-from pages import *
+from headers import *
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 # 
@@ -27,45 +28,6 @@ from pages import *
 
 # try: curl -v -X GET http://127.0.0.1:8080/
 
-def get_http_date():
-    import time
-    return time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
-
-def get_200_header(content, type):
-    return f"""HTTP/1.1 200 OK\r
-Date: {get_http_date()}\r
-Server: MyCoolCMPUT404Server/1.0\r
-Content-Type: text/{type}; charset=UTF-8\r
-Content-Length: {len(content)}\r
-
-{content}"""
-
-
-def get_404_header():
-    return f"""HTTP/1.1 404 Not Found\r
-Date: {get_http_date()}\r
-Server: MyCoolCMPUT404Server/1.0\r
-Content-Type: text/html; charset=UTF-8\r
-Content-Length: {len(PAGE404)+1}\r
-
-{PAGE404}"""
-
-def get_405_header():
-    return f"""HTTP/1.1 405 Method Not Allowed\r
-Date: {get_http_date()}\r
-Server: MyCoolCMPUT404Server/1.0\r
-Content-Type: text/html; charset=UTF-8\r
-Content-Length: {len(PAGE405)}\r
-
-{PAGE405}"""
-
-def get_301_location(host, original_url):
-    return host + original_url + "/"
-
-def get_301_header(host, original_url):
-    return f"""HTTP/1.1 301 Moved Permanently\r
-Location: http://{get_301_location(host, original_url)}\r
-"""
 
 class MyWebServer(socketserver.BaseRequestHandler):
 
@@ -83,6 +45,7 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
     def handle_request_host(self):
         lines = self.data.splitlines()
+        self.host = None
         for line in lines:
             if line.startswith(b"Host:"):
                 self.host = line.split()[1]
@@ -98,6 +61,9 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
     def send_405(self):
         self.request.sendall(bytearray(get_405_header(),'utf-8'))
+
+    def send_400(self):
+        self.request.sendall(bytearray(get_400_header(),'utf-8'))
 
     def send_301(self):
         self.request.sendall(bytearray(get_301_header(self.host, self.url),'utf-8'))
@@ -119,7 +85,24 @@ class MyWebServer(socketserver.BaseRequestHandler):
         except:
             self.send_404()
 
+    def find_file_from_url(self):
+
+        # if the url is a directory that has a trailing slash, look for index.html
+        if self.url[len(self.url) -1] == "/":
+            self.url = self.url + "index.html"
+
+        # if the url is a directory that doesn't have a trailing slash AND has a file existing there, send 301
+        if self.url[len(self.url) -1] != "/" and not os.path.isfile("www" + self.url) and os.path.isfile("www" + self.url + "/index.html"):
+            print(self.url)
+            self.send_301()
+            return False
+
+        # otherwise, the file is a real file, so look for it like normal
+        return True
+
+
     def handle(self):
+
         self.data = self.request.recv(1024).strip()
         print ("Got a request of: %s\n" % self.data)
 
@@ -130,12 +113,27 @@ class MyWebServer(socketserver.BaseRequestHandler):
             return
 
         self.handle_request_url()
-        self.handle_request_host()
-        self.handle_request_extension()
 
-        if self.extension is None and self.url[len(self.url) -1] != "/":
-            self.send_301()
+        # no relative paths are allowed in the url, this is a security risk
+        split_url = self.url.split("/")
+        if ".." in split_url or "." in split_url:
+            # Note: I would normally send 400 here, but the tests don't like it
+            self.send_404()
             return
+
+        self.handle_request_host()
+        if self.host is None:
+            self.send_400()
+            return
+
+
+        # TODO fix extensions with paths
+        # TODO read through questions on eClass
+
+        if not self.find_file_from_url():
+            return
+
+        self.handle_request_extension()
 
         self.try_send_page(path_ending=self.extension is None)
 
