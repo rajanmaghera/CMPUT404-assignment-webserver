@@ -83,13 +83,11 @@ class MyWebServer(socketserver.BaseRequestHandler):
             self.content_type = "text/" + self.extension
 
         try:
-            print("www" + self.url)
             file = open("www" + self.url, "r")
             content = file.read()
             file.close()
             self.request.sendall(bytearray(get_200_header(content, self.content_type),'utf-8'))
         except:
-            print("HERE!")
             self.send_404()
 
     def find_file_from_url(self):
